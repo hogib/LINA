@@ -80,13 +80,16 @@ given any material that the "Prohibited" section rules out.
 1. **Black-box observation and the EULA.** Does Ableton's licence agreement restrict using the
    product to build a competing one, or restrict analysis of its behaviour? Until answered,
    `[observed]` should be used sparingly and not as the sole source for anything.
-2. **The name.** "Lina is not Ableton" puts Ableton's trademark in the expansion of the project's
-   name. Keep the expansion, keep "LINA" and drop the expansion from public material, or rename?
-3. **Contributors.** Is a signed statement of compliance with this policy required from
+2. **Contributors.** Is a signed statement of compliance with this policy required from
    contributors, or is a line in the contributing guide enough?
 
 ## Decided (2026-11-13)
 
+- **The name stays.** The project is called LINA and the expansion "Lina is not Ableton" is kept
+  in public material. It is the one place where the Ableton name appears as part of how LINA
+  describes itself; the rule that no Ableton trademark appears in the UI, binaries or package
+  names is unchanged. Public material carries a statement that LINA is not affiliated with
+  Ableton.
 - **Project file import is deferred.** No work on reading Live's project files until the owner
   reopens the question; the format is not studied in the meantime.
 - **Device parity is a goal.** LINA will build functional equivalents of Live's devices after the

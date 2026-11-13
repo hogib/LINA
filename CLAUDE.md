@@ -2,6 +2,9 @@
 
 LINA ("Lina is not Ableton") is a clean-room, GPLv3 DAW for Linux with a Live-style workflow.
 
+## Licence
+- LINA's own source files are `GPL-3.0-or-later`; each carries that SPDX identifier in its header.
+
 ## Language
 - C++23, built with CMake (JUCE and Tracktion Engine support no other build system).
 - Playback engine: Tracktion Engine v3.2.0 (pins JUCE 8.0.6), used as a runtime engine only (see

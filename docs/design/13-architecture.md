@@ -87,12 +87,14 @@ lina_app ──► lina_ui ──► lina_bridge ──► lina_engine ──►
 
 1. **Musical time** is a 64-bit integer count of ticks, 15,120 per quarter note. That number
    divides evenly by 16, 20, 24 and 28, which covers straight, quintuplet, triplet and septuplet
-   subdivisions down to 1/64 notes (doc 04). *Proposed.*
+   subdivisions down to 1/64 notes (doc 04). Decided 2026-11-13.
 2. **Identities** are 64-bit integers taken from a counter stored in the document, never reused
    and never random, so tests and saves are deterministic (doc 10).
 3. **Commands** are plain values (`MoveClip`, `SetTempo`, ...). `apply` is the only way to change
    the document. Each command yields its inverse; undo applies inverses. One user gesture is one
-   transaction of one or more commands (doc 12). *Proposed*; see open question 2.
+   transaction of one or more commands (doc 12). Decided 2026-11-13: undo by inverse commands,
+   not by keeping earlier versions of the document. Tests check, for generated command
+   sequences, that applying a command and then its inverse restores the document exactly.
 4. **Rules of the model are enforced in `apply`:** clips on a track never overlap, same-pitch
    notes never overlap, every track has one slot per scene (docs 03, 06, 08). The engine is
    never relied on for these.
@@ -145,7 +147,4 @@ lina_app ──► lina_ui ──► lina_bridge ──► lina_engine ──►
 
 ## Open questions
 
-1. **Undo by inverse commands (proposed) or by keeping earlier versions of the document.**
-   Inverses are compact; versions are simpler to get right and make recovery copies cheap.
-2. **Tick resolution** of 15,120 per quarter note: acceptable?
-3. How a recovery copy is taken without stalling the main thread on a large project.
+1. How a recovery copy is taken without stalling the main thread on a large project.

@@ -29,7 +29,7 @@ Status: **draft**. Stack-dependent. This doc turns the testing and maintainabili
 - No third-party source is patched (`CLAUDE.md`). Tracktion's vendored `nanorange.hpp` has a
   typo that GCC 14 and later reject; the workaround is the flag `-Wno-template-body` on the
   third-party target only.
-- **Clang workaround (adopted 2026-11-18, owner's confirmation pending).** JUCE 8.0.6 has a
+- **Clang workaround (decided 2026-11-18).** JUCE 8.0.6 has a
   never-instantiated constructor template in `juce_AudioPluginInstance.h` whose body does not
   compile. GCC accepts it; Clang 23 rejects it at every language level. Under Clang, every
   translation unit that includes JUCE is therefore compiled with `-fdelayed-template-parsing`.
@@ -38,7 +38,7 @@ Status: **draft**. Stack-dependent. This doc turns the testing and maintainabili
     does. `lina_model` and `lina_format` never include JUCE and are unaffected.
   - Risk: Clang deprecates this mode after C++20 and may remove it. The remaining ways out would
     be a JUCE version that fixes the header, or a patch, which the project rules forbid.
-- **UBSan workaround (adopted 2026-11-18, owner's confirmation pending).** In the `asan` preset
+- **UBSan workaround (decided 2026-11-18).** In the `asan` preset
   the third-party library is built with UBSan's function-type check off. JUCE's bundled LV2
   libraries call a function through a pointer of a slightly different type when an engine
   starts, and that check aborts on it. All other UBSan checks and ASan stay on for third-party
@@ -137,12 +137,22 @@ reconsidered if its quality turns out not to be good enough.
 4. CI runs on GitHub Actions (decided 2026-11-13). The workflow is added with the first buildable
    code, not before.
 
+## Tools
+
+The project's tooling carries silly names (`CLAUDE.md`, "Naming"). Decided 2026-11-18.
+
+| Script | CMake target | Name | Does |
+|---|---|---|---|
+| `tools/grid.sh [--fix]` | `grid` | "GRID Rejects Indentation Deviance" | Checks every C++ file of ours against `.clang-format`; `--fix` reformats in place. |
+| `tools/flat.sh [build-dir]` | `flat` (Clang presets only) | "FLAT Lints All Translation-units" | Runs `clang-tidy` with the checked-in config over our translation units. |
+| `tools/pawl.sh [--update]` | none | "PAWL Always Wants Lines" | The coverage ratchet below; `--update` rewrites `tools/coverage-baseline.txt`. |
+
 ## Repository layout
 
 ```
 CMakeLists.txt  CMakePresets.json  .clang-format  .clang-tidy
 cmake/                               (CMake modules: third-party library, warnings, sanitizers)
-tools/                               (format check, clang-tidy runner, coverage ratchet)
+tools/                               (grid, flat, pawl: see "Tools")
 .github/workflows/ci.yml
 src/model/  src/format/  src/engine/  src/bridge/  src/ui/  src/app/
 qml/

@@ -49,7 +49,7 @@ jobs:
         include:
           - name: format
             cache-preset: ""
-            run: tools/check-format.sh
+            run: tools/grid.sh
           - name: dev (GCC)
             cache-preset: dev
             run: |
@@ -85,13 +85,13 @@ jobs:
               ctest --preset rtsan
           - name: coverage ratchet (Clang)
             cache-preset: coverage
-            run: tools/coverage-ratchet.sh
+            run: tools/pawl.sh
           - name: clang-tidy
             # Needs a Clang compile database only; nothing is compiled.
             cache-preset: ""
             run: |
               cmake --preset asan
-              tools/run-clang-tidy.sh build/asan
+              tools/flat.sh build/asan
     steps:
       # Before the checkout: actions/checkout needs git in the container to fetch submodules.
       - name: Install the pinned toolchain

@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: GPL-3.0-or-later
 #
+# pawl: "PAWL Always Wants Lines". A pawl is the part of a ratchet that stops it slipping back.
+#
 # Coverage ratchet (docs/design/14-build-test-and-ci.md, "Coverage ratchet").
 #
 # Builds the `coverage` preset, runs its tests, measures line and branch coverage of LINA's own
@@ -11,8 +13,8 @@
 # code under tests/ is instrumented but filtered out here, and generated code lives in the build
 # directory, outside src/.
 #
-# Usage: tools/coverage-ratchet.sh            measure and compare
-#        tools/coverage-ratchet.sh --update   measure and rewrite the baseline file
+# Usage: tools/pawl.sh            measure and compare
+#        tools/pawl.sh --update   measure and rewrite the baseline file
 #
 # States of the baseline file:
 #   `none`                     LINA has no library sources yet. The script passes only while
@@ -53,7 +55,7 @@ case "${1:-}" in
 esac
 
 fail() {
-  echo "coverage-ratchet: FAIL: $*" >&2
+  echo "pawl: FAIL: $*" >&2
   exit 1
 }
 
@@ -114,7 +116,7 @@ unmeasured=0
 while IFS= read -r -d '' source; do
   [[ -f "$repo/$source" ]] || continue
   if ! grep -qxF -- "$repo/$source" "$measured_files"; then
-    echo "coverage-ratchet: not linked into any test executable: $source" >&2
+    echo "pawl: not linked into any test executable: $source" >&2
     unmeasured=1
   fi
 done < <(git -C "$repo" ls-files -z --cached --others --exclude-standard -- 'src/*.cpp')
@@ -128,14 +130,14 @@ percent() { # covered total
   fi
 }
 
-echo "coverage-ratchet: lines    $lines_hit/$lines_found ($(percent "$lines_hit" "$lines_found"))"
-echo "coverage-ratchet: branches $branches_hit/$branches_found ($(percent "$branches_hit" "$branches_found"))"
+echo "pawl: lines    $lines_hit/$lines_found ($(percent "$lines_hit" "$lines_found"))"
+echo "pawl: branches $branches_hit/$branches_found ($(percent "$branches_hit" "$branches_found"))"
 
 if ((update)); then
   {
     echo "# SPDX-License-Identifier: GPL-3.0-or-later"
     echo "# Coverage baseline of LINA's own sources (src/), written by"
-    echo "# tools/coverage-ratchet.sh --update. Format: <figure> <covered> <total>, or \`none\`"
+    echo "# tools/pawl.sh --update. Format: <figure> <covered> <total>, or \`none\`"
     echo "# while LINA has no library sources. Do not edit by hand."
     if ((lines_found == 0)); then
       echo "none"
@@ -145,7 +147,7 @@ if ((update)); then
     fi
   } >"$baseline.tmp"
   mv -- "$baseline.tmp" "$baseline"
-  echo "coverage-ratchet: baseline written to $baseline"
+  echo "pawl: baseline written to $baseline"
   exit 0
 fi
 
@@ -170,7 +172,7 @@ done <"$baseline"
 
 if [[ "$base_state" == "none" ]]; then
   if ((lines_found == 0)); then
-    echo "coverage-ratchet: PASS (no library sources under src/ yet; nothing to compare)"
+    echo "pawl: PASS (no library sources under src/ yet; nothing to compare)"
     exit 0
   fi
   fail "src/ now has measured sources but the baseline is \`none\`; record it with --update"
@@ -194,13 +196,13 @@ compare() { # name hit found base_hit base_found
     return 0
   fi
   if ((found == 0 || base_found == 0)); then
-    echo "coverage-ratchet: $name coverage has no counterpart: now $now, baseline $base" >&2
+    echo "pawl: $name coverage has no counterpart: now $now, baseline $base" >&2
     status=1
   elif ((hit * base_found < base_hit * found)); then
-    echo "coverage-ratchet: $name coverage dropped: now $now, baseline $base" >&2
+    echo "pawl: $name coverage dropped: now $now, baseline $base" >&2
     status=1
   elif ((hit * base_found > base_hit * found)); then
-    echo "coverage-ratchet: $name coverage rose: now $now, baseline $base;" \
+    echo "pawl: $name coverage rose: now $now, baseline $base;" \
       "record it with --update in this commit" >&2
     status=1
   fi
@@ -209,4 +211,4 @@ compare() { # name hit found base_hit base_found
 compare line "$lines_hit" "$lines_found" "$base_lines_hit" "$base_lines_found"
 compare branch "$branches_hit" "$branches_found" "$base_branches_hit" "$base_branches_found"
 ((status == 0)) || fail "coverage differs from the baseline"
-echo "coverage-ratchet: PASS (baseline: lines $base_lines_hit/$base_lines_found, branches $base_branches_hit/$base_branches_found)"
+echo "pawl: PASS (baseline: lines $base_lines_hit/$base_lines_found, branches $base_branches_hit/$base_branches_found)"

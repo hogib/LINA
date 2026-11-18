@@ -31,7 +31,7 @@ function(lina_add_catch_test name)
   catch_discover_tests(${name} PROPERTIES ${arg_PROPERTIES})
 endfunction()
 
-# Lists the instrumented test executables for tools/coverage-ratchet.sh, one per line.
+# Lists the instrumented test executables for tools/pawl.sh, one per line.
 function(lina_write_coverage_binaries)
   if(NOT LINA_COVERAGE)
     return()

@@ -2,7 +2,7 @@
 #
 # Static analysis for LINA's own sources. Third-party code is never analysed: its headers are
 # system headers, and HeaderFilterRegex only admits headers under src/ and tests/.
-# Run with tools/run-clang-tidy.sh.
+# Run with tools/flat.sh.
 Checks: >
   -*,
   bugprone-*,

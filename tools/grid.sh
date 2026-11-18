@@ -1,11 +1,13 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: GPL-3.0-or-later
 #
+# grid: "GRID Rejects Indentation Deviance".
+#
 # Checks that every C++ file of LINA's own matches the checked-in .clang-format.
 # Third-party code (a submodule) and build output (git-ignored) are never listed.
 #
-# Usage: tools/check-format.sh          check only; exits 1 if a file is not formatted
-#        tools/check-format.sh --fix    reformat in place
+# Usage: tools/grid.sh          check only; exits 1 if a file is not formatted
+#        tools/grid.sh --fix    reformat in place
 set -euo pipefail
 
 repo="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -33,9 +35,9 @@ done < <(git -C "$repo" ls-files -z --cached --others --exclude-standard -- \
   '*.cpp' '*.hpp' '*.h')
 
 if ((${#files[@]} == 0)); then
-  echo "check-format: FAIL: found no C++ files to check" >&2
+  echo "grid: FAIL: found no C++ files to check" >&2
   exit 1
 fi
 
 "$clang_format" --style=file "${mode[@]}" "${files[@]}"
-echo "check-format: ${#files[@]} file(s) checked"
+echo "grid: ${#files[@]} file(s) checked"

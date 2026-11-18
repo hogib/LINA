@@ -28,15 +28,15 @@ endif()
 
 lina_write_coverage_binaries()
 
-add_custom_target(format-check
-  COMMAND "${CMAKE_CURRENT_SOURCE_DIR}/tools/check-format.sh"
+add_custom_target(grid
+  COMMAND "${CMAKE_CURRENT_SOURCE_DIR}/tools/grid.sh"
   COMMENT "Checking clang-format on LINA sources"
   VERBATIM USES_TERMINAL)
 
 # clang-tidy replays the compile database, so the target exists only where Clang wrote it.
 if(CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
-  add_custom_target(tidy
-    COMMAND "${CMAKE_CURRENT_SOURCE_DIR}/tools/run-clang-tidy.sh" "${CMAKE_BINARY_DIR}"
+  add_custom_target(flat
+    COMMAND "${CMAKE_CURRENT_SOURCE_DIR}/tools/flat.sh" "${CMAKE_BINARY_DIR}"
     COMMENT "Running clang-tidy on LINA sources"
     VERBATIM USES_TERMINAL)
 endif()

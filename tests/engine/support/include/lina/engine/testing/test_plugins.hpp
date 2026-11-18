@@ -1,0 +1,122 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+#ifndef LINA_ENGINE_TESTING_TEST_PLUGINS_HPP
+#define LINA_ENGINE_TESTING_TEST_PLUGINS_HPP
+
+#include <tracktion_engine/tracktion_engine.h>
+
+#include <array>
+#include <cstddef>
+#include <cstdint>
+#include <vector>
+
+namespace lina::engine::testing {
+
+/// Test instrument whose output is known in closed form.
+///
+/// A note-on of MIDI note p and velocity v that lands on sample frame s makes
+/// the instrument write, into every output channel and for every frame n >= s
+/// until the matching note-off,
+///
+///     (v / 127) * cos(2 * pi * f(p) * (n - s) / sampleRate),
+///     f(p) = 440 * 2^((p - 69) / 12).
+///
+/// The phase is computed from the integer age n - s in double precision, so
+/// the output does not depend on how the stream is cut into blocks. Notes sum.
+/// There is no envelope: the first frame of a note is at full level and the
+/// frame of the note-off is silent. An event between two frames takes effect
+/// on the nearer one.
+class ToneInstrument final : public tracktion::Plugin {
+public:
+  static constexpr const char *xmlTypeName = "linaTestTone";
+  static constexpr int voiceCount = 16;
+
+  explicit ToneInstrument(const tracktion::PluginCreationInfo &info);
+  ~ToneInstrument() override;
+
+  ToneInstrument(const ToneInstrument &) = delete;
+  ToneInstrument &operator=(const ToneInstrument &) = delete;
+  ToneInstrument(ToneInstrument &&) = delete;
+  ToneInstrument &operator=(ToneInstrument &&) = delete;
+
+  static const char *getPluginName() { return "LINA test tone"; }
+  static juce::ValueTree create();
+
+  juce::String getName() const override { return getPluginName(); }
+  juce::String getPluginType() override { return xmlTypeName; }
+  juce::String getSelectableDescription() override { return getName(); }
+
+  bool takesMidiInput() override { return true; }
+  bool isSynth() override { return true; }
+  bool producesAudioWhenNoAudioInput() override { return true; }
+  int getNumOutputChannelsGivenInputs(
+      [[maybe_unused]] int inputChannelCount) override {
+    return 2;
+  }
+
+  void initialise(const tracktion::PluginInitialisationInfo &info) override;
+  void deinitialise() override;
+  void reset() override;
+  void applyToBuffer(const tracktion::PluginRenderContext &context)
+      [[clang::nonblocking]] override;
+
+private:
+  struct Voice {
+    bool active = false;
+    int note = 0;
+    double level = 0.0;
+    double frequency = 0.0;
+    std::int64_t age = 0;
+  };
+
+  void handle(const juce::MidiMessage &message) [[clang::nonblocking]];
+  void render(const tracktion::PluginRenderContext &context, int from, int to)
+      [[clang::nonblocking]];
+  void silence() [[clang::nonblocking]];
+
+  std::array<Voice, voiceCount> voices_{};
+  double sampleRate_ = 0.0;
+};
+
+/// Test effect: every channel comes out delayed by a whole number of sample
+/// frames and multiplied by a gain, y[n] = gain * x[n - delay], with silence
+/// before the first delayed frame. It reports no latency, so the engine does
+/// not compensate for the delay and the shift is audible.
+///
+/// Both values are read from the plugin's state when the playback graph is
+/// built; set them before playing or rendering.
+class DelayGainEffect final : public tracktion::Plugin {
+public:
+  static constexpr const char *xmlTypeName = "linaTestDelayGain";
+  static constexpr std::size_t maxChannels = 2;
+
+  explicit DelayGainEffect(const tracktion::PluginCreationInfo &info);
+  ~DelayGainEffect() override;
+
+  DelayGainEffect(const DelayGainEffect &) = delete;
+  DelayGainEffect &operator=(const DelayGainEffect &) = delete;
+  DelayGainEffect(DelayGainEffect &&) = delete;
+  DelayGainEffect &operator=(DelayGainEffect &&) = delete;
+
+  static const char *getPluginName() { return "LINA test delay and gain"; }
+  static juce::ValueTree create(int delayFrames, float gain);
+
+  juce::String getName() const override { return getPluginName(); }
+  juce::String getPluginType() override { return xmlTypeName; }
+  juce::String getSelectableDescription() override { return getName(); }
+
+  void initialise(const tracktion::PluginInitialisationInfo &info) override;
+  void deinitialise() override;
+  void reset() override;
+  void applyToBuffer(const tracktion::PluginRenderContext &context)
+      [[clang::nonblocking]] override;
+
+private:
+  /// The last `delay` input frames of each channel, used as a ring.
+  std::array<std::vector<float>, maxChannels> history_;
+  std::size_t position_ = 0;
+  float gain_ = 1.0F;
+};
+
+} // namespace lina::engine::testing
+
+#endif // LINA_ENGINE_TESTING_TEST_PLUGINS_HPP

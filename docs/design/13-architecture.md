@@ -90,7 +90,7 @@ lina_app ──► lina_ui ──► lina_bridge ──► lina_engine ──►
    subdivisions down to 1/64 notes (doc 04). Decided 2026-11-13.
 2. **Identities** are 64-bit integers taken from a counter stored in the document, never reused
    and never random, so tests and saves are deterministic (doc 10).
-3. **Commands** are plain values (`MoveClip`, `SetTempo`, ...). `apply` is the only way to change
+3. **Commands** are plain values (`MoveClip`, `SetProjectProperty` with a tempo, ...). `apply` is the only way to change
    the document. Each command yields its inverse; undo applies inverses. One user gesture is one
    transaction of one or more commands (doc 12). Decided 2026-11-13: undo by inverse commands,
    not by keeping earlier versions of the document. Tests check, for generated command
@@ -101,7 +101,17 @@ lina_app ──► lina_ui ──► lina_bridge ──► lina_engine ──►
 5. **Change sets.** Applying a command returns a description of what changed (which objects,
    which properties). Both the interface and the projection consume it. The Qt Quick spike used
    a single coarse "document changed" signal and rebuilt everything visible; that is the thing
-   to do better.
+   to do better. The contract a consumer must follow (what a merged change set does and does
+   not list) is written out in the header that defines it.
+6. **Restoring is internal.** The commands that put a removed object back under its old
+   identity exist only as inverses inside the document. No caller can issue one, so an identity
+   can never come back as a different kind of object.
+7. **A document always passes validation.** The same rule functions serve the commands and the
+   whole-document check that the file loader uses, including range checks on every enumeration
+   and the rule that every position plus length stays within 2^53 ticks, so that every stored
+   time converts to floating point exactly.
+8. A refused command leaves the document unchanged and names the object the caller addressed.
+   An inverse that is refused is a defect in the library, and the process aborts.
 
 ## The projection (`lina_engine`)
 
@@ -122,6 +132,38 @@ lina_app ──► lina_ui ──► lina_bridge ──► lina_engine ──►
      published as snapshots and atomics that the interface polls once per frame.
    - *Engine-produced data* (plugin state, finished recordings, detected tempos) reaches the
      document only as commands issued on the main thread.
+
+## Engine bring-up (`lina_engine`, `lina_bridge`)
+
+Built 2026-11-19, ahead of the projection.
+
+1. **No device, driven by hand.** Tests open a manual device and ask for a number of frames.
+   The engine runs Tracktion's playback graph on the calling thread and returns the audio. The
+   output is bit-identical across block sizes, across one and several audio threads, and
+   between two engines in one process.
+2. **An offline render is playback.** A render of a range is defined as exactly what playback
+   started at the first frame of that range produces, with plugins freshly initialised and no
+   pre-roll; both run the same code. Tracktion's own renderer is not used: it sleeps on the wall
+   clock, and its pre-roll makes a partial render differ from playback. A render started in the
+   middle of a project is therefore not a slice of a render of the whole.
+3. **Files are replaced safely.** A render to a file is written under a temporary name next to
+   the target, checked, and renamed over it. A failure leaves an existing file untouched.
+4. **Changing the edit while playing.** After the edit is changed, one call rebuilds the
+   playback graph at once and playback continues; sounding notes and plugin state carry across.
+   Tracktion's own route for this runs off a timer and is not used.
+5. **Errors.** Mistakes by the caller (wrong thread, no device, bad format or range) throw.
+   Failures of the outside world (files) are returned as values.
+6. **Event loop.** The bridge registers JUCE's file descriptors with Qt's event loop, so one
+   loop serves both. File descriptors registered from other threads are tolerated, not
+   supported.
+7. **Known departures from the docs, to be settled** (see "Open questions"):
+   - Tracktion ends every note 0.0001 seconds early, about 5 samples at 48 kHz.
+   - A note-on is placed by the receiving plugin; Tracktion hands it a time within the block.
+     Our test instrument and Tracktion's plugin hosting round to the nearest sample.
+   - Creating Tracktion's playback context waits about 0.2 seconds of wall-clock time when the
+     device is driven by hand. It is created once per engine, so each engine test pays it once.
+     Tracktion has a similar wait of up to 0.1 seconds when launched clips are stopped and when
+     a recording is prepared.
 
 ## The interface (`lina_ui`, `lina_bridge`)
 
@@ -148,3 +190,8 @@ lina_app ──► lina_ui ──► lina_bridge ──► lina_engine ──►
 ## Open questions
 
 1. How a recovery copy is taken without stalling the main thread on a large project.
+2. Note ends: accept Tracktion's early note-off (5 samples at 48 kHz), or try supplying exact
+   note sequences through the engine's hook for that? Docs 08 and 11 ask for the exact sample.
+3. The model finds objects by scanning and has no index by identity. Its cost on the large
+   project of doc 11 is unmeasured.
+4. Undo history has no depth limit, and each removal keeps a full copy of what it removed.

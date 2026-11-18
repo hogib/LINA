@@ -70,6 +70,10 @@ reconsidered if its quality turns out not to be good enough.
 
 - `-Wall -Wextra -Wpedantic -Werror` on every LINA target (`CLAUDE.md`: warnings are errors).
 - `QT_NO_KEYWORDS`, because Tracktion has identifiers named `slots`.
+- Every library of ours is added through one CMake function, `lina_add_library`, so none can
+  miss the warnings or the coverage instrumentation.
+- The CMake option `LINA_ENABLE_ENGINE` (on by default) can be switched off to build and test
+  the model tier alone, without compiling the third-party library. CI always builds with it on.
 - CMake's scanning for C++ modules is switched off, consistent with "headers, not modules".
 - Functions that run on the audio thread are marked `[[clang::nonblocking]]`.
 
@@ -103,6 +107,14 @@ reconsidered if its quality turns out not to be good enough.
 
 - Tests never open a real audio device, read the wall clock, sleep, use the network or use
   unseeded randomness (`CLAUDE.md`). The engine runs on a null device or is driven by hand.
+- Two exceptions to "no wall clock", both forced by the frameworks:
+  - Tests of the event-loop bridge wait for real events (timers, calls from other threads).
+    Every such wait blocks in the event loop until a condition holds and fails the test on a
+    long deadline. No test measures elapsed time.
+  - Tracktion waits about 0.2 seconds when its playback context is created under a device
+    driven by hand (doc 13). No test result depends on it.
+- Engine and bridge tests set `HOME` and `TMPDIR` to a scratch folder and unset `DISPLAY`
+  themselves, so a test binary run by hand behaves as it does under CTest.
 - Reference audio comparisons state their tolerance per test. A test that depends on a
   third-party plugin is not allowed in the gating suite; a small test instrument and effect of
   our own are built for the purpose.
@@ -151,17 +163,25 @@ The project's tooling carries silly names (`CLAUDE.md`, "Naming"). Decided 2026-
 
 ```
 CMakeLists.txt  CMakePresets.json  .clang-format  .clang-tidy
-cmake/                               (CMake modules: third-party library, warnings, sanitizers)
+cmake/                               (CMake modules: third-party library, Qt, warnings, sanitizers)
 tools/                               (grid, flat, pawl: see "Tools")
 .github/workflows/ci.yml
 src/model/  src/format/  src/engine/  src/bridge/  src/ui/  src/app/
+  <library>/include/lina/<library>/  (public headers)
+  engine/internal/                   (headers for code inside the engine tier and its tests)
 qml/
-tests/model/  tests/format/  tests/engine/  tests/ui/  tests/golden/  tests/audio-refs/
+tests/model/  tests/format/  tests/engine/  tests/bridge/  tests/ui/  tests/golden/
+tests/audio-refs/
+  model/support/                     (command generator and change-set oracle, also for WP4)
+  engine/support/                    (test instrument and effect, edit building, scratch folders)
 third_party/tracktion_engine/        (submodule)
 docs/design/
 ```
 
 ## Open questions
 
-None at present. (The spike sources were removed from the tree on 2026-11-18; they remain in git
+1. `clang-tidy`'s analyzer reports a finding inside a Catch2 header when `REQUIRE_FALSE` is used
+   in a loop, despite the header filter. Tests write `REQUIRE(!x)` until that is understood.
+
+(The spike sources were removed from the tree on 2026-11-18; they remain in git
 history at commit `389c082`.)

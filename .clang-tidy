@@ -23,6 +23,8 @@ Checks: >
   -readability-magic-numbers
 WarningsAsErrors: '*'
 HeaderFilterRegex: '.*/(src|tests)/.*'
+# Fetched dependencies (Catch2) have a src/ directory of their own inside the build tree.
+ExcludeHeaderFilterRegex: '.*/(build|third_party)/.*'
 FormatStyle: file
 CheckOptions:
   # Catch2's TEST_CASE and REQUIRE expand to code that trips these in every test file.

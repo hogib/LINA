@@ -106,3 +106,7 @@ release that knowledge is a single number per clip.
 2. Which compressed formats must import in the first release?
 3. Tempo detection estimates a tempo; it does not find where bar one starts. Is it enough for the
    first release that the user trims the clip start to the downbeat by hand?
+4. "Looping" item 1 says a clip's start, loop start and loop length are in seconds when "follow
+   tempo" is off. Doc 04 says every position in a project is stored in musical time. The
+   document model as built (2026-11-19) stores them in musical time always. Proposed: change
+   this doc to match, and treat seconds as a display matter.

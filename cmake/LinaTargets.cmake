@@ -6,10 +6,41 @@
 add_library(lina_warnings INTERFACE)
 add_library(lina::warnings ALIAS lina_warnings)
 target_compile_options(lina_warnings INTERFACE -Wall -Wextra -Wpedantic -Werror)
+if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+  # Audio-thread functions carry [[clang::nonblocking]] for RealtimeSanitizer. GCC does not
+  # know attributes in the clang namespace and would warn on each one.
+  target_compile_options(lina_warnings INTERFACE -Wno-attributes=clang::)
+endif()
 
 # Call on every library and executable of LINA's own. Never on third-party targets.
 function(lina_target_defaults target)
   target_link_libraries(${target} PRIVATE lina::warnings lina::coverage)
+endfunction()
+
+# lina_add_library(<name> SOURCES <file>... [PUBLIC_LIBRARIES <target>...]
+#                  [PRIVATE_LIBRARIES <target>...])
+#
+# Adds the static library <name> with the alias lina::<name without "lina_">. Its public
+# headers live in an include/ directory next to the calling CMakeLists.txt. Every library of
+# LINA's own is added through this function, so none can miss the warnings or the coverage
+# instrumentation.
+function(lina_add_library name)
+  cmake_parse_arguments(PARSE_ARGV 1 arg "" "" "SOURCES;PUBLIC_LIBRARIES;PRIVATE_LIBRARIES")
+  if(NOT name MATCHES "^lina_")
+    message(FATAL_ERROR "lina_add_library(${name}): the name must start with lina_")
+  endif()
+  if(NOT arg_SOURCES)
+    message(FATAL_ERROR "lina_add_library(${name}): SOURCES is required")
+  endif()
+
+  add_library(${name} STATIC ${arg_SOURCES})
+  string(REGEX REPLACE "^lina_" "" short_name "${name}")
+  add_library(lina::${short_name} ALIAS ${name})
+  lina_target_defaults(${name})
+  target_include_directories(${name} PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/include")
+  target_link_libraries(${name}
+    PUBLIC ${arg_PUBLIC_LIBRARIES}
+    PRIVATE ${arg_PRIVATE_LIBRARIES})
 endfunction()
 
 # lina_add_catch_test(<name> SOURCES <file>... [LIBRARIES <target>...]

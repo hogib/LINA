@@ -2,4 +2,5 @@
 # Coverage baseline of LINA's own sources (src/), written by
 # tools/pawl.sh --update. Format: <figure> <covered> <total>, or `none`
 # while LINA has no library sources. Do not edit by hand.
-none
+lines 2867 2889
+branches 1034 1041

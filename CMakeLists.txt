@@ -18,7 +18,15 @@ list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 # code included.
 include(LinaInstrumentation)
 include(LinaTargets)
-include(LinaTracktion)
+option(LINA_ENABLE_ENGINE
+  "Build the engine, the bridge and everything above them. Off builds the model tier only."
+  ON)
+if(LINA_ENABLE_ENGINE)
+  include(LinaTracktion)
+  include(LinaQt)
+endif()
+
+add_subdirectory(src)
 
 include(CTest)
 if(BUILD_TESTING)

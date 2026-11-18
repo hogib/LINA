@@ -110,3 +110,9 @@ play from left to right. It is also what gets exported.
    only ever be as long as their content, with repetition done by duplicating?
 2. Are group tracks needed in the first release? They are in the glossary but not in the agreed
    first-release list.
+3. Built into the document model (2026-11-19), to confirm: removing a device or a return track
+   removes the automation that targets it in the same undo step, and undo brings both back; a
+   device moved to another track takes the automation of its parameters with it.
+4. Placing a clip over another "removes the covered part" (clip rules). The model's commands
+   refuse an overlap; the trimming is composed by the caller in one undo step. Where that
+   composing logic lives is not built yet.

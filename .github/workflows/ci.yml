@@ -1,0 +1,143 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+# Continuous integration (docs/design/14-build-test-and-ci.md).
+#
+# Every job runs in the same Arch Linux container. The toolchain is pinned twice over: the
+# image by digest, and every package by installing from the Arch Linux Archive snapshot of one
+# fixed day. To move the toolchain, change ARCH_ARCHIVE_DATE (and the image digest when the
+# base image is too old to upgrade cleanly) in one commit.
+name: CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # Snapshot with GCC 16.2.1, Clang/LLVM 23.1.5, CMake 4.5.0, Ninja 1.13.2.
+  ARCH_ARCHIVE_DATE: 2026/11/17
+  # third_party/tracktion_engine, tag v3.2.0. Part of the cache key; keep in step with the
+  # submodule.
+  TRACKTION_COMMIT: 0a5f4e6a5f53d09c89b414a44386a12df7fa1ec6
+  LINA_JOBS: 4
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  ci:
+    name: ${{ matrix.name }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    container:
+      # archlinux:base-devel-20261108.0.623074
+      image: archlinux@sha256:fa2d4ce3310ddd90a4208e5168be8ad367da5129af1245f38fd2d803bcbe3239
+      # The sanitizer runtimes need ptrace (LeakSanitizer) and personality (ThreadSanitizer
+      # re-executes itself with address-space randomisation off), which Docker's default
+      # seccomp profile restricts.
+      options: --security-opt seccomp=unconfined
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: format
+            cache-preset: ""
+            run: tools/check-format.sh
+          - name: dev (GCC)
+            cache-preset: dev
+            run: |
+              cmake --preset dev
+              cmake --build --preset dev -j "$LINA_JOBS"
+              ctest --preset dev
+          - name: release (GCC)
+            # The shipping configuration: catches warnings that only appear when optimising.
+            cache-preset: release
+            run: |
+              cmake --preset release
+              cmake --build --preset release -j "$LINA_JOBS"
+              ctest --preset release
+          - name: asan (Clang, ASan + UBSan)
+            cache-preset: asan
+            run: |
+              cmake --preset asan
+              cmake --build --preset asan -j "$LINA_JOBS"
+              ctest --preset asan
+          - name: tsan (Clang)
+            cache-preset: tsan
+            run: |
+              cmake --preset tsan
+              cmake --build --preset tsan -j "$LINA_JOBS"
+              ctest --preset tsan
+          - name: rtsan (Clang)
+            # RealtimeSanitizer checks only functions marked [[clang::nonblocking]]. Until LINA
+            # has audio-thread code of its own, this job proves the build and nothing more.
+            cache-preset: rtsan
+            run: |
+              cmake --preset rtsan
+              cmake --build --preset rtsan -j "$LINA_JOBS"
+              ctest --preset rtsan
+          - name: coverage ratchet (Clang)
+            cache-preset: coverage
+            run: tools/coverage-ratchet.sh
+          - name: clang-tidy
+            # Needs a Clang compile database only; nothing is compiled.
+            cache-preset: ""
+            run: |
+              cmake --preset asan
+              tools/run-clang-tidy.sh build/asan
+    steps:
+      # Before the checkout: actions/checkout needs git in the container to fetch submodules.
+      - name: Install the pinned toolchain
+        run: |
+          echo "Server = https://archive.archlinux.org/repos/${ARCH_ARCHIVE_DATE}/\$repo/os/\$arch" \
+            > /etc/pacman.d/mirrorlist
+          pacman -Syyuu --noconfirm --needed \
+            git cmake ninja gcc clang llvm compiler-rt pkgconf \
+            alsa-lib freetype2 fontconfig libglvnd \
+            libx11 libxext libxrandr libxinerama libxcursor libxrender libxcomposite
+
+      - name: Check out with submodules
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          # Later steps run repository code; do not leave the token in .git/config for them.
+          persist-credentials: false
+
+      - name: Prepare the work tree
+        run: |
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+          test "$(git -C third_party/tracktion_engine rev-parse HEAD)" = "$TRACKTION_COMMIT"
+          # Ninja rebuilds what is older than its inputs. A fresh checkout stamps every file
+          # with the current time, which would make the restored third-party objects stale;
+          # give the pinned third-party sources a fixed time in the past instead.
+          find third_party -exec touch -h -d '2000-01-01T00:00:00Z' {} +
+          {
+            echo "gcc=$(gcc -dumpfullversion)"
+            echo "clang=$(clang -dumpversion)"
+            # System headers change with the package snapshot, so it is part of the cache key.
+            echo "snapshot=${ARCH_ARCHIVE_DATE//\//-}"
+          } >> "$GITHUB_OUTPUT"
+        id: prepare
+
+      # The third-party static library, its objects and the Ninja logs that prove them up to
+      # date. LINA's own objects are not cached.
+      - name: Cache the third-party library
+        if: matrix.cache-preset != ''
+        uses: actions/cache@v4
+        with:
+          path: |
+            build/${{ matrix.cache-preset }}/.ninja_deps
+            build/${{ matrix.cache-preset }}/.ninja_log
+            build/${{ matrix.cache-preset }}/liblina_tracktion.a
+            build/${{ matrix.cache-preset }}/CMakeFiles/lina_tracktion.dir
+          key: third-party-${{ matrix.cache-preset }}-${{ env.TRACKTION_COMMIT }}-${{ steps.prepare.outputs.snapshot }}-gcc${{ steps.prepare.outputs.gcc }}-clang${{ steps.prepare.outputs.clang }}-${{ hashFiles('CMakeLists.txt', 'CMakePresets.json', 'cmake/LinaTracktion.cmake', 'cmake/LinaInstrumentation.cmake') }}
+
+      - name: ${{ matrix.name }}
+        run: ${{ matrix.run }}

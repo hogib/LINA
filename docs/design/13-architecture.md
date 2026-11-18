@@ -5,8 +5,8 @@ CMake, Tracktion Engine on JUCE as a runtime playback engine, Qt 6 Quick for the
 LINA owning its own document. Everything else here is *proposed* unless marked decided.
 
 Evidence referred to below comes from throwaway spikes and a source-level fit check of docs 03 to
-10 against Tracktion Engine v3.2.0. The sources of the two C++ spikes are kept under `spike/`; the
-Rust/egui spike was deleted once its measurements were recorded.
+10 against Tracktion Engine v3.2.0. The spikes were deleted once their measurements were recorded;
+the sources of the two C++ spikes remain in git history at commit `389c082` under `spike/`.
 
 Engine version, decided 2026-11-13: Tracktion Engine release tag v3.2.0, which pins JUCE 8.0.6.
 This is what every spike and the fit check used. Its `develop` branch (JUCE 9, unreleased) is not

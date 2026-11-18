@@ -9,10 +9,30 @@ centre of the design. LINA is meant to fill that gap.
 
 ## Status
 
-**Design phase. There is nothing to build or run yet.**
+**Early implementation. There is no application to run yet.**
 
-The repository currently holds the design documents, the project rules, and the sources of two
-throwaway feasibility spikes under `spike/`. All design documents are drafts.
+The repository holds the design documents, the project rules, and the build and test scaffolding:
+the playback engine compiles as a pinned third-party library, and one smoke test starts and stops
+it under every build configuration. All design documents are drafts.
+
+## Building
+
+Requirements: Linux, CMake 3.28 or newer, Ninja, GCC and Clang with C++23 support (developed with
+GCC 16 and Clang 23), and the development packages for ALSA, FreeType, Fontconfig and X11.
+
+```sh
+git clone https://github.com/hogib/LINA.git
+cd LINA
+# Tracktion Engine refers to JUCE by an SSH address; fetch it over HTTPS instead.
+git -c url.https://github.com/.insteadOf=git@github.com: submodule update --init --recursive
+
+cmake --preset dev
+cmake --build --preset dev
+ctest --preset dev
+```
+
+Other presets: `release`, and on Clang `asan`, `tsan`, `rtsan` and `coverage`. See
+[`docs/design/14-build-test-and-ci.md`](docs/design/14-build-test-and-ci.md).
 
 ## Where to look
 

@@ -10,7 +10,7 @@ Status: **draft**. Stack-dependent. This doc turns the testing and maintainabili
 | Language | C++23 (decided) | Headers, not modules. Qt's `moc` handles module units only from Qt 6.13 with CMake 4.5, and not yet with GCC. Revisit then. |
 | Build system | CMake with Ninja (decided) | JUCE and Tracktion Engine support nothing else. |
 | Presets | `CMakePresets.json` | One preset per configuration below, so that local runs and CI use the same commands. |
-| Compilers | GCC and Clang, both required to build cleanly | The spikes used GCC 16 only. **Clang is untested with this stack** and is needed for the sanitizers and coverage. |
+| Compilers | GCC and Clang, both required to build cleanly | Verified 2026-11-18 with GCC 16.2 and Clang 23.1: the whole stack builds at C++23 on both, with the two workarounds listed under "Dependencies". Clang uses libstdc++, to stay compatible with the system's Qt. |
 | Formatting | `clang-format`, LLVM style (decided) | Checked in CI. |
 | Static analysis | `clang-tidy` with a checked-in `.clang-tidy` | Our targets only. |
 
@@ -20,7 +20,7 @@ Status: **draft**. Stack-dependent. This doc turns the testing and maintainabili
 |---|---|---|
 | Tracktion Engine v3.2.0, with JUCE 8.0.6 as its submodule | Git submodule pinned to the release tag | Decided 2026-11-13 |
 | Qt 6.12 LTS (Core, Gui, Qml, Quick, QuickControls2, QuickTest) | System packages | Decided as a dependency |
-| Catch2 | System package or pinned fetch | Approved in `CLAUDE.md` |
+| Catch2 | System package if present, otherwise fetched by CMake at v3.16.1, pinned by commit | Approved in `CLAUDE.md` |
 | nlohmann/json | System package or pinned fetch; parsing only (doc 16) | Approved 2026-11-13 |
 | SoundTouch | Bundled with Tracktion Engine | Decided 2026-11-13 as the time-stretch backend |
 
@@ -29,8 +29,28 @@ Status: **draft**. Stack-dependent. This doc turns the testing and maintainabili
 - No third-party source is patched (`CLAUDE.md`). Tracktion's vendored `nanorange.hpp` has a
   typo that GCC 14 and later reject; the workaround is the flag `-Wno-template-body` on the
   third-party target only.
+- **Clang workaround (adopted 2026-11-18, owner's confirmation pending).** JUCE 8.0.6 has a
+  never-instantiated constructor template in `juce_AudioPluginInstance.h` whose body does not
+  compile. GCC accepts it; Clang 23 rejects it at every language level. Under Clang, every
+  translation unit that includes JUCE is therefore compiled with `-fdelayed-template-parsing`.
+  - Cost: in those files, Clang does not check the bodies of templates that are never
+    instantiated, so Clang diagnostics, `clang-tidy` and coverage do not see them. GCC still
+    does. `lina_model` and `lina_format` never include JUCE and are unaffected.
+  - Risk: Clang deprecates this mode after C++20 and may remove it. The remaining ways out would
+    be a JUCE version that fixes the header, or a patch, which the project rules forbid.
+- **UBSan workaround (adopted 2026-11-18, owner's confirmation pending).** In the `asan` preset
+  the third-party library is built with UBSan's function-type check off. JUCE's bundled LV2
+  libraries call a function through a pointer of a slightly different type when an engine
+  starts, and that check aborts on it. All other UBSan checks and ASan stay on for third-party
+  code, and LINA's own code keeps every check.
 - Build options set for JUCE: web browser and curl off, JACK off for now, VST3 and LV2 hosting
-  on, LADSPA off.
+  on, LADSPA off. JUCE's application and plugin wrappers are not built.
+- In debug builds JUCE assertions are routed through its logger, so that tests can fail when one
+  fires. In release builds assertions are compiled out, and a test's "no assertion fired" check
+  proves nothing there.
+- Starting an engine with LV2 hosting on makes JUCE read every LV2 bundle installed on the
+  machine. Engine tests point `HOME` at a scratch folder so the user's own plugins stay out; the
+  system-wide LV2 folders cannot be redirected, so tests must not depend on what is found there.
 
 ### Time-stretch
 
@@ -50,6 +70,7 @@ reconsidered if its quality turns out not to be good enough.
 
 - `-Wall -Wextra -Wpedantic -Werror` on every LINA target (`CLAUDE.md`: warnings are errors).
 - `QT_NO_KEYWORDS`, because Tracktion has identifiers named `slots`.
+- CMake's scanning for C++ modules is switched off, consistent with "headers, not modules".
 - Functions that run on the audio thread are marked `[[clang::nonblocking]]`.
 
 ## Configurations
@@ -91,17 +112,26 @@ reconsidered if its quality turns out not to be good enough.
 ## Coverage ratchet
 
 1. The `coverage` preset runs the gating suite and produces line and branch coverage with
-   `llvm-cov`, for LINA's own sources only.
+   `llvm-cov`, for LINA's own sources under `src/` only. A source file under `src/` that no test
+   executable links fails the run, since it would otherwise be invisible to the measurement.
+   Until the first library source exists the stored baseline is `none`, not a number; the commit
+   that adds the first source records the first real figures.
 2. The current figures are stored in a small checked-in file. CI fails if either figure is lower
-   than the stored one; a change that raises coverage updates the file in the same commit.
+   than the stored one. It also fails if a figure is higher, until the file is updated in the
+   same commit, so the stored figures never lag behind.
 3. Excluded from the figure: generated code (`moc`, QML type registration) and third-party code.
 
 ## Continuous integration
 
-1. Every push runs: format check, `dev` build with GCC, `asan`, `tsan`, `rtsan`, `coverage`
-   with the ratchet, `clang-tidy`.
-2. All jobs run in a container image that pins the compiler, CMake and Qt versions, built from a
-   file in the repo.
+1. Every push and pull request runs: format check, `dev` and `release` builds with GCC, `asan`,
+   `tsan`, `rtsan`, `coverage` with the ratchet, `clang-tidy`.
+   - Until LINA has audio-thread functions marked real-time, the `rtsan` job proves only that
+     the stack builds and starts with that runtime.
+2. All jobs run in the official Arch Linux container image, pinned by digest, and install their
+   packages from the Arch Linux Archive snapshot of one fixed day, which pins the compiler and
+   CMake versions (and Qt, once it is used). The pins live in the workflow file. Installing in
+   every job is slower than a prebuilt image; a prebuilt image would need a registry to publish
+   it to.
 3. The third-party static library is cached between runs, keyed by the pinned commit and the
    compiler version.
 4. CI runs on GitHub Actions (decided 2026-11-13). The workflow is added with the first buildable
@@ -111,15 +141,17 @@ reconsidered if its quality turns out not to be good enough.
 
 ```
 CMakeLists.txt  CMakePresets.json  .clang-format  .clang-tidy
+cmake/                               (CMake modules: third-party library, warnings, sanitizers)
+tools/                               (format check, clang-tidy runner, coverage ratchet)
+.github/workflows/ci.yml
 src/model/  src/format/  src/engine/  src/bridge/  src/ui/  src/app/
 qml/
 tests/model/  tests/format/  tests/engine/  tests/ui/  tests/golden/  tests/audio-refs/
 third_party/tracktion_engine/        (submodule)
 docs/design/
-spike/                               (throwaway; not built by the main project)
 ```
 
 ## Open questions
 
-1. The sources of the two C++ spikes are still under `spike/`. Keep them in the repository as a
-   starting point and record, or delete them once the real code has replaced them?
+None at present. (The spike sources were removed from the tree on 2026-11-18; they remain in git
+history at commit `389c082`.)

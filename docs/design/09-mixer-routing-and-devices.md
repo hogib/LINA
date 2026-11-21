@@ -108,9 +108,9 @@ input or clip playback → clip gain → device chain → volume and pan → out
 3. Group tracks (also asked in doc 06): first release or later?
 4. Should the first release offer any way to record what the master outputs into a new clip?
    It is the simple way to "bounce" something before track freezing exists.
-5. Value ranges chosen while building the document model (2026-11-19), to confirm: volume from
+5. Decided 2026-11-21, to be moved into the rules above: value ranges are volume from
    silence (stored as -96 dB) to +6 dB; pan -1 to 1; send level from silence to 0 dB; plugin
    parameter values normalised 0 to 1. Mute and solo are allowed on return tracks.
 6. A track's input is stored without depending on a device being present: an audio input by
    channel number, mono or stereo; a MIDI input as "all" or one device by the name the system
-   reports. A device that is missing is kept as stored. To confirm.
+   reports. A device that is missing is kept as stored. Decided 2026-11-21.

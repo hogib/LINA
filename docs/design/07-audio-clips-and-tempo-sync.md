@@ -73,7 +73,8 @@ release that knowledge is a single number per clip.
 ## Looping and playback range
 
 1. **(R1)** The clip's start position, loop switch, loop start and loop length (doc 05) are in
-   musical time when "follow tempo" is on, and in seconds when it is off.
+   always stored in musical time, like every position in a project (doc 04). With "follow
+   tempo" off the interface may show them in seconds. Decided 2026-11-21.
 2. **(R1)** A loop repeats without a click at the join. Where the audio itself does not join
    cleanly, a very short crossfade is applied at the loop point.
 
@@ -106,7 +107,3 @@ release that knowledge is a single number per clip.
 2. Which compressed formats must import in the first release?
 3. Tempo detection estimates a tempo; it does not find where bar one starts. Is it enough for the
    first release that the user trims the clip start to the downbeat by hand?
-4. "Looping" item 1 says a clip's start, loop start and loop length are in seconds when "follow
-   tempo" is off. Doc 04 says every position in a project is stored in musical time. The
-   document model as built (2026-11-19) stores them in musical time always. Proposed: change
-   this doc to match, and treat seconds as a display matter.

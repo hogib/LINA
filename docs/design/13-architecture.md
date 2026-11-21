@@ -156,7 +156,8 @@ Built 2026-11-19, ahead of the projection.
 6. **Event loop.** The bridge registers JUCE's file descriptors with Qt's event loop, so one
    loop serves both. File descriptors registered from other threads are tolerated, not
    supported.
-7. **Known departures from the docs, to be settled** (see "Open questions"):
+7. **Known departures from the docs.** The own render path and the 0.2 second wait were
+   accepted on 2026-11-21; note ends are in "Open questions".
    - Tracktion ends every note 0.0001 seconds early, about 5 samples at 48 kHz.
    - A note-on is placed by the receiving plugin; Tracktion hands it a time within the block.
      Our test instrument and Tracktion's plugin hosting round to the nearest sample.
@@ -190,8 +191,9 @@ Built 2026-11-19, ahead of the projection.
 ## Open questions
 
 1. How a recovery copy is taken without stalling the main thread on a large project.
-2. Note ends: accept Tracktion's early note-off (5 samples at 48 kHz), or try supplying exact
-   note sequences through the engine's hook for that? Docs 08 and 11 ask for the exact sample.
+2. Note ends. Decided 2026-11-21: the projection tries supplying exact note sequences through
+   the engine's hook for that. If that does not work without a patch, Tracktion's early
+   note-off (5 samples at 48 kHz) is accepted and docs 08 and 11 are reworded.
 3. The model finds objects by scanning and has no index by identity. Its cost on the large
    project of doc 11 is unmeasured.
 4. Undo history has no depth limit, and each removal keeps a full copy of what it removed.
